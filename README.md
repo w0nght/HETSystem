@@ -12,4 +12,4 @@ The objective of the home is to accurately estimate the required energy and proc
 | Name                  | Student no.                  |                     Github                     |
 | --------------------- | -------------- |---------------------------------------------- |
 | Hei Tung Wong         | 101664795 | [w0nght](https://github.com/w0nght)   |
-| Kieu Que Thanh Nguyen |  101354326    | [kellpossible](http://github.com/kellpossible) |
+| Kieu Que Thanh Nguyen |  101354326    |

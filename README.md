@@ -13,3 +13,6 @@ The objective of the home is to accurately estimate the required energy and proc
 | Hei Tung Wong         |    101664795   | [w0nght](https://github.com/w0nght)          |
 | Kieu Que Thanh Nguyen |    101354326   | [wedproject](https://github.com/wedproject)  |
 
+## 
+Run Configuration > Java Application > Configuration
+Main Class: <jade.Boot>

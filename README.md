@@ -15,4 +15,7 @@ The objective of the home is to accurately estimate the required energy and proc
 
 ## 
 Run Configuration > Java Application > Configuration
-Main Class: <jade.Boot>
+
+Main Class: `jade.Boot`
+
+Program Arguments: `-gui -agnets HomeAgent:Home.HomeAgent:RetailerAgent:Retailer.RetailerAgent`

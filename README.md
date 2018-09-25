@@ -13,7 +13,10 @@ The objective of the home is to accurately estimate the required energy and proc
 | Hei Tung Wong         |    101664795   | [w0nght](https://github.com/w0nght)          |
 | Kieu Que Thanh Nguyen |    101354326   | [wedproject](https://github.com/wedproject)  |
 
-## 
+### Add JADE libraries to project
+All jar files are located in the lib folder. If the project settings not up-to-date, please go to the project properties.
+Project Properties > Java Biild Path > Libraries > Add JARs...
+
 Run Configuration > Java Application > Configuration
 
 Main Class: `jade.Boot`

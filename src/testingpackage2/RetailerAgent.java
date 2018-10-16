@@ -134,6 +134,7 @@ public class RetailerAgent extends Agent {
 		@Override
 		public void action() {
 			// TODO Auto-generated method stub
+			
 			MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL),
 					MessageTemplate.MatchConversationId("RetailerSelling"));
 			ACLMessage msg = myAgent.receive(mt);
@@ -146,8 +147,8 @@ public class RetailerAgent extends Agent {
 					reply.setPerformative(ACLMessage.INFORM);
 					reply.setConversationId("RetailerSelling");
 					reply.setContent("I provided service");
-					System.out.println(
-							myAgent.getLocalName() + "=>" + msg.getSender().getLocalName() + ":I provided service");
+					System.out.println(myAgent.getLocalName() + "=>" + msg.getSender().getLocalName()
+							+ ":I provided service (INFORM)");
 				} else {
 					// The requested book has been sold to another buyer in the meanwhile .
 					reply.setPerformative(ACLMessage.FAILURE);
@@ -156,14 +157,14 @@ public class RetailerAgent extends Agent {
 							+ ":I cannot provide the service");
 				}
 				myAgent.send(reply);
-			} 
-			
+			}
+
 			MessageTemplate tp = MessageTemplate.and(MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL),
-			MessageTemplate.MatchConversationId("RetailerSelling"));
+					MessageTemplate.MatchConversationId("RetailerSelling"));
 			ACLMessage ms = myAgent.receive(tp);
-			if(ms!=null)
-			System.out.println(
-					myAgent.getLocalName() + "<=" + ms.getSender().getLocalName() + ":" + ms.getContent());
+			if (ms != null)
+				System.out
+						.println(myAgent.getLocalName() + "<=" + ms.getSender().getLocalName() + ":" + ms.getContent());
 
 		}
 
@@ -189,6 +190,7 @@ public class RetailerAgent extends Agent {
 				Delay(n);
 				// CFP Message received. Process it
 				Double kwhRequestbuy = Double.parseDouble(msg.getContent());
+				System.out.println(myAgent.getLocalName() + "<=" + msg.getSender().getLocalName() + ":" + msg.getContent());
 				ACLMessage reply = msg.createReply();
 				// reply.setConversationId("RetailerSelling");
 				// System.out.println(sellPrice.toString() + "|" + penaltyPrice.toString() + "|"
@@ -196,21 +198,24 @@ public class RetailerAgent extends Agent {
 				String offer = sellPrice.toString() + "|" + penaltyPrice.toString() + "|" + timeContract.toString()
 						+ "|" + kwhRequestbuy.toString();
 				if (kwhRequestbuy != 0) {
-					// The requested book is available for sale. Reply with the price
+					// HA send retailer the usage !=0
 					reply.setPerformative(ACLMessage.PROPOSE);
 					reply.setConversationId("RetailerSelling");
 					reply.setContent(offer);
 					System.out.println(myAgent.getLocalName() + "=>" + msg.getSender().getLocalName() + ":" + offer
-							+ "  [SellPrice|Penalty|Time|Kwh] (Reply Time:" + (System.currentTimeMillis() - t) + ")");
+							+ "  [SellPrice|Penalty|Time|Kwh][REPLY TIME:" + (System.currentTimeMillis() - t)+ 
+							"](PROPOSE)");
+					myAgent.send(reply);
 				} else {
-					// The requested book is NOT available for sale.
+					// HA send retailer the usage =0
 					reply.setPerformative(ACLMessage.REFUSE);
 					// reply.setConversationId("RetailerSelling");
 					reply.setContent("Meaasage me expected kwh u demand!!");
 					System.out.println(myAgent.getLocalName() + "=>" + msg.getSender().getLocalName()
-							+ ":Meaasage me expected kwh u demand!!");
+							+ ":Meaasage me expected kwh u demand!!(refuse)");
+					myAgent.send(reply);
 				}
-				myAgent.send(reply);
+				
 
 			}
 
@@ -221,40 +226,41 @@ public class RetailerAgent extends Agent {
 	private class OfferingToBuyEnergy extends CyclicBehaviour {
 		private Double kwhRequestsell = 0.0;
 		private long t;
+
 		@Override
 		public void action() {
 			// TODO Auto-generated method stub
 			MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchPerformative(ACLMessage.CFP),
-					MessageTemplate.MatchConversationId("RetailerSelling"));
+					MessageTemplate.MatchConversationId("RetailerBuying"));
 			ACLMessage msg = myAgent.receive(mt);
 			t = System.currentTimeMillis();
 			if (msg != null) {
-				// Deplay offer
+				// Deplay send offer
 				Random rand = new Random();
 				long n = ((int) (Math.random() * 9 + 1)) * 1000; // delay from 1-10s
 				Delay(n);
 				// CFP Message received. Process it
 				Double kwhRequestsell = Double.parseDouble(msg.getContent());
-				ACLMessage reply = msg.createReply();
-				// reply.setConversationId("RetailerSelling");
+				ACLMessage reply = msg.createReply();				
 				// System.out.println(sellPrice.toString() + "|" + penaltyPrice.toString() + "|"
 				// + timeContract.toString());
-				String offer = buyPrice.toString();;
+				String offer = buyPrice.toString();
+				;
 				if (kwhRequestsell != 0) {
-					// The requested book is available for sale. Reply with the price
+					// HA send retailer the usage !=0
 					reply.setPerformative(ACLMessage.PROPOSE);
-					reply.setConversationId("RetailerSelling");
+					reply.setConversationId("RetailerBuying");
 					reply.setContent(offer);
 					System.out.println(myAgent.getLocalName() + "=>" + msg.getSender().getLocalName() + ":$" + offer
 							+ "kwh  [wanna buy] (Reply Time:" + (System.currentTimeMillis() - t) + ")");
 				} else {
-					// The requested book is NOT available for sale.
+					// HA send retailer the usage =0
 					reply.setPerformative(ACLMessage.REFUSE);
-					// reply.setConversationId("RetailerSelling");
+					reply.setConversationId("RetailerSelling");
 					reply.setContent("Meaasage me expected kwh u wanna sell!!");
 					System.out.println(myAgent.getLocalName() + "=>" + msg.getSender().getLocalName()
 							+ ":Meaasage me expected kwh u wanna sell!!");
-					
+
 				}
 				myAgent.send(reply);
 			}
@@ -279,10 +285,10 @@ public class RetailerAgent extends Agent {
 
 	public class YearlyPricingStrategy implements PricingStrategy {
 		public double getPrice() {
-			Date date = new Date();
-			int differentYear = date.getYear() - 2015;
+			//Date date = new Date();
 
-			return 100 * differentYear;
+
+			return 100 - 100;
 		}
 	}
 

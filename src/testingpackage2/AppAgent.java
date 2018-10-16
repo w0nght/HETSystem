@@ -5,6 +5,7 @@ import java.util.Date;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
+import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.core.behaviours.SequentialBehaviour;
 import jade.core.behaviours.TickerBehaviour;
@@ -33,17 +34,13 @@ public class AppAgent extends Agent {
 		if (args != null && args.length > 0) {
 			power = Double.parseDouble((String) args[0]);
 			solar = Boolean.parseBoolean((String) args[1]);
-			if (solar == true) {
-				solar = true;
-				System.out.println(
-						"Availabe appliance: " + getAID().getLocalName() + " will generate " + power + " Kwh.");
-			} else {
-				solar = false;
-				System.out
-						.println("Availabe appliance: " + getAID().getLocalName() + " will consume " + power + " Kwh.");
-			}
+			if (solar == true)
+				System.out.println(getAID().getLocalName() + " will generate " + power + " Kwh, being ready.");
+			else
+				System.out.println(getAID().getLocalName() + " will consume " + power + " Kwhbeing ready.");
+
 		} else {
-			System.out.println("Availabe appliance: " + getAID().getLocalName() + " cannot be used.");
+			System.out.println(getAID().getLocalName() + " cannot be used.");
 		}
 
 		if (power != null && solar != null) {
@@ -65,6 +62,7 @@ public class AppAgent extends Agent {
 				protected void onTick() {
 					// TODO Auto-generated method stub
 					addBehaviour(req);
+					System.out.println("sdfasdfas");
 				}
 			});
 			addBehaviour(seq);
@@ -147,24 +145,22 @@ public class AppAgent extends Agent {
 				request.setContent(power.toString());
 				request.addReceiver(homeAgent);
 				send(request);
-				System.out.println(
-						myAgent.getLocalName() + "==request==>" + homeAgent.getLocalName() + ":" + power.toString());
-
+				System.out.println(myAgent.getLocalName() + "==>" + homeAgent.getLocalName() + ":" + power.toString()
+						+ "(REQUEST)");
 				step++;
 				break;
 			case 1:
-				MessageTemplate tp = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
+				MessageTemplate tp = MessageTemplate.or(MessageTemplate.MatchPerformative(ACLMessage.AGREE),MessageTemplate.MatchPerformative(ACLMessage.REFUSE)) ;
 				tp = MessageTemplate.MatchSender(homeAgent);
 				tp = MessageTemplate.MatchConversationId("RequestConsume");
 				ACLMessage reply = blockingReceive(tp);
 				if (reply != null) {
-					System.out.println(myAgent.getLocalName() + "<=" + reply.getSender() + ":" + reply.getContent());
+					System.out.println(myAgent.getLocalName() + "<=" + reply.getSender().getLocalName() + ":" + reply.getContent());
 				} else
 					block();
 
 				step++;
 				break;
-
 			}
 		}
 

@@ -14,11 +14,11 @@ The objective of the home is to accurately estimate the required energy and proc
 | Kieu Que Thanh Nguyen |    101354326   | [wedproject](https://github.com/wedproject)  |
 
 ### Add JADE libraries to project
-All jar files are located in the lib folder. 
-If the project settings not up-to-date, please go to the project properties.
-in the project Workspace, right click on the project, go under Build Path > Configure Build Path...
-In the project properties window, go to Java Biild Path > Libraries > Add JARs...
-select all jar file from the lib folder > OK > Apply and Close 
+All jar files are located in the lib folder.  </br>
+If the project settings not up-to-date, please go to the project properties. </br>
+in the project Workspace, right click on the project, go under Build Path > Configure Build Path... </br>
+In the project properties window, go to Java Biild Path > Libraries > Add JARs... </br>
+select all jar file from the lib folder > OK > Apply and Close  </br>
 
 Run Configuration > Java Application > Configuration
 

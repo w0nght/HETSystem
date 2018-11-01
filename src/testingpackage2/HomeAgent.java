@@ -23,9 +23,10 @@ public class HomeAgent extends Agent {
 	private Double store = 0.0; // (total Kwh Apps generated)
 	private String contract; // (SellingPrice|PenaltyPrice|timeSlot|Kwh)
 	private Long timeSlot = (long) 0; // Time in contract
-	private Double maxBuy = 1.1; // maximum price to buy
+	private Double maxBuy = 1.9; // maximum price to buy
 	private Double minSell = 1.0; // minimum price to Sell
 	private Double money; // credit to pay
+	private long timeAllow = 3000; // time allow to retailer response
 	private AID[] retailers; // All searched retails
 	private AID[] conApps; // All searched consuming apps
 	private AID[] genApps; // All searched generating apps
@@ -39,39 +40,25 @@ public class HomeAgent extends Agent {
 			System.out.println(getAID().getLocalName() + ": has $" + money + " is ready.");
 		}
 
-		SequentialBehaviour seq = new SequentialBehaviour();
-		ParallelBehaviour pb = new ParallelBehaviour(ParallelBehaviour.WHEN_ANY);
+		// SequentialBehaviour seq = new SequentialBehaviour();
+		// ParallelBehaviour pb = new ParallelBehaviour(ParallelBehaviour.WHEN_ANY);
 
 		RegisterService reg = new RegisterService();
 		UpdatingApps apps = new UpdatingApps();
 		UpdatingRetailers res = new UpdatingRetailers();
+		AnswerStoreRequests sto = new AnswerStoreRequests();
 		LookingContract loo = new LookingContract();
 		AnswerConsumeRequests con = new AnswerConsumeRequests();
-		AnswerStoreRequests sto = new AnswerStoreRequests();
+		
 
-		pb.addSubBehaviour(new TickerBehaviour(this, 2000) {
-			@Override
-			protected void onTick() {
-				// TODO Auto-generated method stub
-				addBehaviour(new PayService());
-			}
-		});
-		pb.addSubBehaviour(apps);
-		pb.addSubBehaviour(res);
-		pb.addSubBehaviour(loo);
-		pb.addSubBehaviour(con);
-		pb.addSubBehaviour(sto);
+		addBehaviour(new RegisterService());
+		addBehaviour(new UpdatingApps());
+		addBehaviour(new UpdatingRetailers());
+		addBehaviour(new AnswerConsumeRequests());
+		addBehaviour(new LookingContract());
 
-		seq.addSubBehaviour(reg);
-		seq.addSubBehaviour(pb);
-
-		addBehaviour(seq);
-		// this.addBehaviour(new RegisterService());
-		// this.addBehaviour(new UpdatingApps());
-		// this.addBehaviour(new UpdatingRetailers());
-		// this.addBehaviour(new LookingContract());
-		// this.addBehaviour(new AnswerConsumeRequests());
-		// this.addBehaviour(new AnswerStoreRequests());
+		addBehaviour(new PayService());
+		addBehaviour(new AnswerStoreRequests());
 
 	}
 
@@ -108,7 +95,7 @@ public class HomeAgent extends Agent {
 
 	}
 
-	private class LookingContract extends Behaviour {
+	private class LookingContract extends CyclicBehaviour {
 		private int step = 0;
 		private MessageTemplate mt; // The template to receive replies
 		private AID bestSeller; // The agent who provides the best offer
@@ -124,136 +111,131 @@ public class HomeAgent extends Agent {
 		public void action() {
 			// TODO Auto-generated method stub
 			if (timeSlot <= 0) {
-				switch (step) {
-				case 0:
-					// Send the cfp to all sellers
-					ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
-					cfp.setConversationId("RetailerSelling");
-					for (int i = 0; i < retailers.length; ++i) {
-						cfp.addReceiver(retailers[i]);
-						System.out.println(myAgent.getLocalName() + "=>" + retailers[i].getLocalName() + ":"
-								+ usage.toString() + "[wanna buy](CFP)");
+				while (step < 4) {
+					if (step == 0) {
+						// Send the cfp to all sellers
+						ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
+						cfp.setConversationId("RetailerSelling");
+						for (int i = 0; i < retailers.length; ++i) {
+							cfp.addReceiver(retailers[i]);
+							System.out.println(myAgent.getLocalName() + "=>" + retailers[i].getLocalName() + ":"
+									+ usage.toString() + "[wanna buy](CFP)");
+						}
+						cfp.setContent(usage.toString());
+						cfp.setConversationId("RetailerSelling");
+						cfp.setReplyByDate(new Date(timeAllow));
+						myAgent.send(cfp);
+
+						step++;
+
+						// Prepare the template to get proposals
+						mt = MessageTemplate.and(MessageTemplate.MatchConversationId("RetailerSelling"),
+								MessageTemplate.MatchInReplyTo(cfp.getReplyWith()));
 					}
-					cfp.setContent(usage.toString());
-					cfp.setConversationId("RetailerSelling");
-					timeAllow = System.currentTimeMillis() + 500;
-					cfp.setReplyByDate(new Date(timeAllow));
-					myAgent.send(cfp);
 
-					step++;
+					if (step == 1) {
+						// Receive all proposals/refusals from retailers
+						ACLMessage reply = receive();
 
-					// Prepare the template to get proposals
-					mt = MessageTemplate.and(MessageTemplate.MatchConversationId("RetailerSelling"),
-							MessageTemplate.MatchInReplyTo(cfp.getReplyWith()));
-					break;
+						if (reply != null) {
+							// Reply received
+							if (reply.getPerformative() == ACLMessage.PROPOSE) {
+								// Decompose the String of Contract Offer
+								String[] parts = reply.getContent().split("\\|");
+								offerPrice = Double.parseDouble(parts[0].toString());
+								offerPenalty = Double.parseDouble(parts[1]);
+								offerTime = Long.parseLong(parts[2].toString());
+								offerKwh = Double.parseDouble(parts[3].toString());
+								// Print out received Message
+								System.out.println(myAgent.getLocalName() + "<=" + reply.getSender().getLocalName()
+										+ ":" + reply.getContent());
 
-				case 1:
-					// Receive all proposals/refusals from retailers
-					ACLMessage reply = receive();
+								if (bestSeller == null || offerPrice < bestPrice) {
+									// This is the best offer at present
+									bestPrice = offerPrice;
+									bestSeller = reply.getSender();
+								} else {
+									ACLMessage refuse = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
+									refuse.addReceiver(reply.getSender());
+									refuse.setContent("Refuse");
+									refuse.setConversationId("RetailerSelling");
+									// refuse.setReplyWith("I'll refuse" + System.currentTimeMillis());
+									// Print out Sending Message
+									System.out.println(myAgent.getLocalName() + "=>" + reply.getSender().getLocalName()
+											+ ":refused[found a better price](REJECT_PROPOSAL)");
+									send(refuse);
+									step = 1;
+								}
 
-					if (reply != null) {
-						// Reply received
-						if (reply.getPerformative() == ACLMessage.PROPOSE) {
-							//Decompose the String of Contract Offer
-							String[] parts = reply.getContent().split("\\|");
-							offerPrice = Double.parseDouble(parts[0].toString());
-							offerPenalty = Double.parseDouble(parts[1]);
-							offerTime = Long.parseLong(parts[2].toString());
-							offerKwh = Double.parseDouble(parts[3].toString());
-							//Print out received Message
-							System.out.println(myAgent.getLocalName() + "<=" + reply.getSender().getLocalName() + ":"
-									+ reply.getContent());
-							
-							if (bestSeller == null || offerPrice < bestPrice) {
-								// This is the best offer at present
-								bestPrice = offerPrice;
-								bestSeller = reply.getSender();
-							} else {
-								ACLMessage refuse = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
-								refuse.addReceiver(reply.getSender());
-								refuse.setContent("Refuse");
-								refuse.setConversationId("RetailerSelling");
-								// refuse.setReplyWith("I'll refuse" + System.currentTimeMillis());
-								//Print out Sending Message
-								System.out.println(myAgent.getLocalName() + "=>" + reply.getSender().getLocalName()
-										+ ":refused[found a better price](REJECT_PROPOSAL)");
-								send(refuse);
+								repCount++;
+								if ((repCount >= retailers.length) || (timeAllow >= System.currentTimeMillis())) {
+									// If ( received all retailers or over timeAllow)
+									if (bestSeller != null) {
+
+										if (maxBuy >= bestPrice) { // If bestprice <= maxprice, next else refuse
+											step++;
+										} else {
+											ACLMessage refuse = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
+											refuse.addReceiver(bestSeller);
+											refuse.setContent("Refuse");
+											refuse.setConversationId("RetailerSelling");
+											// refuse.setReplyWith("I'll refuse" + System.currentTimeMillis());
+											System.out.println(myAgent.getLocalName() + "=>" + bestSeller.getLocalName()
+													+ ":Refuse[Over Max Buy Price](REJECT_PROPOSAL)");
+											send(refuse);
+											step = 0;
+										}
+									} else
+										step = 0;
+								}
+							}
+						}
+					}
+					if (step == 2) {
+						// Send the purchase order to the retailer that provided the best offer
+						ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+						accept.addReceiver(bestSeller);
+						accept.setContent("Accepted");
+						accept.setConversationId("RetailerSelling");
+						accept.setReplyWith("I'll buy" + System.currentTimeMillis());
+						myAgent.send(accept);
+						System.out.println(myAgent.getLocalName() + "=>" + bestSeller.getLocalName()
+								+ ":Accepted(ACCEPT_PROPOSAL)");
+						// Prepare the template to get the purchase reply from best retailer
+						mt = MessageTemplate.and(MessageTemplate.MatchConversationId("RetailerSelling"),
+								MessageTemplate.MatchInReplyTo(accept.getReplyWith()));
+						step++;
+					}
+					if (step == 3) {
+						// Receive provided service
+						ACLMessage reply = myAgent.receive(mt);
+						if (reply != null) {
+							if (reply.getPerformative() == ACLMessage.INFORM) {
+								System.out.println(myAgent.getLocalName() + "<=" + reply.getSender().getLocalName()
+										+ ":" + reply.getContent());
+
+								// UPdate the CONTRACT AND TIMESLOT
+								contract = offerPrice + "|" + offerPenalty + "|" + offerKwh;
+								timeSlot = offerTime;
+								// Update lastRetailer to Pay
+								lastRetailer = reply.getSender();
 								step = 4;
 							}
-
-							repCount++;
-							if ((repCount >= retailers.length) || (timeAllow >= System.currentTimeMillis())) {
-								// If ( received all retailers or over timeAllow)
-								if (bestSeller != null) {
-
-									if (maxBuy >= bestPrice) // If bestprice <= maxprice, next else refuse
-										step++;
-									else {
-										ACLMessage refuse = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
-										refuse.addReceiver(bestSeller);
-										refuse.setContent("Refuse");
-										refuse.setConversationId("RetailerSelling");
-										// refuse.setReplyWith("I'll refuse" + System.currentTimeMillis());
-										System.out.println(myAgent.getLocalName() + "=>" + bestSeller.getLocalName()
-												+ ":Refuse[Over Max Buy Price](REJECT_PROPOSAL)");
-										send(refuse);
-										step = 4;
-									}
-								} else
-									step = 0;
-							}
-							break;
 						}
-					}
 
-					break;
-				case 2:
-					// Send the purchase order to the retailer that provided the best offer
-					ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
-					accept.addReceiver(bestSeller);
-					accept.setContent("Accepted");
-					accept.setConversationId("RetailerSelling");
-					accept.setReplyWith("I'll buy" + System.currentTimeMillis());
-					myAgent.send(accept);
-					System.out.println(
-							myAgent.getLocalName() + "=>" + bestSeller.getLocalName() + ":Accepted(ACCEPT_PROPOSAL)");
-					// Prepare the template to get the purchase reply from best retailer
-					mt = MessageTemplate.and(MessageTemplate.MatchConversationId("RetailerSelling"),
-							MessageTemplate.MatchInReplyTo(accept.getReplyWith()));
-					step++;
-					break;
-				case 3:
-					// Receive provided service
-					reply = myAgent.receive(mt);
-					if (reply != null) {
-						if (reply.getPerformative() == ACLMessage.INFORM) {
-							System.out.println(myAgent.getLocalName() + "<=" + reply.getSender().getLocalName() + ":"
-									+ reply.getContent());
-
-							// UPdate the CONTRACT AND TIMESLOT
-							contract = offerPrice + "|" + offerPenalty + "|" + offerKwh;
-							timeSlot = offerTime;
-							step = 4;
-						}
-						break;
 					}
 				}
 			}
-
 		}
 
-		@Override
-		public boolean done() {
-			// TODO Auto-generated method stub
-			return (step == 4);
-		}
 	}
 
-	private class PayService extends OneShotBehaviour {
+	private class PayService extends CyclicBehaviour {
 
 		@Override
 		public void action() {
 			// TODO Auto-generated method stub
+			block(1000);
 			if (contract != null && usage > 0) {
 				String[] parts = contract.split("\\|");
 				Double price = Double.parseDouble(parts[0]);
@@ -266,8 +248,8 @@ public class HomeAgent extends Agent {
 				informPay.setConversationId("PayService");
 				informPay.setContent(pay.toString());
 				informPay.addReceiver(lastRetailer);
-				send(informPay);
 				System.out.println(myAgent.getLocalName() + "=>" + lastRetailer.getLocalName() + ":Pay:$" + pay);
+				send(informPay);
 
 				// Update usage
 				usage = 0.0;

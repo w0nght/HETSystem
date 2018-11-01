@@ -1,0 +1,3 @@
+All 3 files should be added in package: HETS
+Then using arguments below to run
+-gui -agents  HA:HETS.HomeAgent(11);Solar:HETS.AppAgent(40,true);Heater:HETS.AppAgent(3,false);PC:HETS.AppAgent(0.5,false);Re1:HETS.RetailerAgent(2.1,1.8,demand);Re2:HETS.RetailerAgent(2.5,1.3,demand);Re3:HETS.RetailerAgent(2.1,1.3,yearly);Re4:HETS.RetailerAgent(2.2,1.3,fixed);Re5:HETS.RetailerAgent(2.0,1.5,demand);

@@ -8,7 +8,7 @@ import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.core.behaviours.SequentialBehaviour;
-import jade.core.behaviours.TickerBehaviour;
+import jade.core.behaviours.Behaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPANames;
@@ -57,14 +57,7 @@ public class AppAgent extends Agent {
 
 			seq.addSubBehaviour(reg);
 			seq.addSubBehaviour(findHA);
-			seq.addSubBehaviour(new TickerBehaviour(this, 2000) {
-				@Override
-				protected void onTick() {
-					// TODO Auto-generated method stub
-					addBehaviour(req);
-					System.out.println("sdfasdfas");
-				}
-			});
+			seq.addSubBehaviour(req);
 			addBehaviour(seq);
 		}
 
@@ -125,49 +118,45 @@ public class AppAgent extends Agent {
 
 	}
 
-	private class RequestPerformer extends Behaviour {
+	private class RequestPerformer extends CyclicBehaviour {
 		private int step = 0;
 
 		@Override
 		public void action() {
 			// TODO Auto-generated method stub
-			switch (step) {
-			case 0:
-				// Send request to HA
-				ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
-				request.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
-				if (solar == true)
-					request.setConversationId("RequestStore");
-				else
-					request.setConversationId("RequestConsume");
-				// request.setReplyByDate(new Date(System.currentTimeMillis() + 10000)); // We
-				// want to receive a reply in 10 secs
-				request.setContent(power.toString());
-				request.addReceiver(homeAgent);
-				send(request);
-				System.out.println(myAgent.getLocalName() + "==>" + homeAgent.getLocalName() + ":" + power.toString()
-						+ "(REQUEST)");
-				step++;
-				break;
-			case 1:
-				MessageTemplate tp = MessageTemplate.or(MessageTemplate.MatchPerformative(ACLMessage.AGREE),MessageTemplate.MatchPerformative(ACLMessage.REFUSE)) ;
-				tp = MessageTemplate.MatchSender(homeAgent);
-				tp = MessageTemplate.MatchConversationId("RequestConsume");
-				ACLMessage reply = blockingReceive(tp);
-				if (reply != null) {
-					System.out.println(myAgent.getLocalName() + "<=" + reply.getSender().getLocalName() + ":" + reply.getContent());
-				} else
-					block();
+			while (step < 2) {
+				block(1000);
+				if (step == 0) {
+					// Send request to HA
+					ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+					request.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
+					if (solar == true)
+						request.setConversationId("RequestStore");
+					else
+						request.setConversationId("RequestConsume");
+					// request.setReplyByDate(new Date(System.currentTimeMillis() + 10000)); // We
+					// want to receive a reply in 10 secs
+					request.setContent(power.toString());
+					request.addReceiver(homeAgent);
+					send(request);
+					System.out.println(myAgent.getLocalName() + "==>" + homeAgent.getLocalName() + ":"
+							+ power.toString() + "(REQUEST)");
+					step++;
+				}
+				if (step == 1) {
+					MessageTemplate tp = MessageTemplate.or(MessageTemplate.MatchPerformative(ACLMessage.AGREE),
+							MessageTemplate.MatchPerformative(ACLMessage.REFUSE));
+					tp = MessageTemplate.MatchSender(homeAgent);
+					tp = MessageTemplate.MatchConversationId("RequestConsume");
+					ACLMessage reply = blockingReceive(tp);
+					if (reply != null) {
+						System.out.println(myAgent.getLocalName() + "<=" + reply.getSender().getLocalName() + ":"
+								+ reply.getContent());
+						step = 2;
+					}
 
-				step++;
-				break;
+				}
 			}
-		}
-
-		@Override
-		public boolean done() {
-			// TODO Auto-generated method stub
-			return (step == 2);
 		}
 
 	}

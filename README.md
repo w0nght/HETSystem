@@ -24,4 +24,7 @@ Run Configuration > Java Application > Configuration
 
 Main Class: `jade.Boot`
 
-Program Arguments: `-gui -agnets HomeAgent:Home.HomeAgent:RetailerAgent:Retailer.RetailerAgent`
+Program Arguments: `-gui
+-agents
+home:agents.HomeAgent;energyWatch:agents.linearRA;assuieEnergy:agents.highRA;dodo:agents.randomRA;desktop:agents.ApplianceAgent;bedroom:agents.ApplianceAgent;airCondition:agents.ApplianceAgent;toliet:agents.ApplianceAgent
+`

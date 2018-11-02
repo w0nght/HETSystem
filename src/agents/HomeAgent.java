@@ -20,24 +20,26 @@ import jade.lang.acl.*;
 import org.json.simple.JSONObject;
 
 public class HomeAgent extends Agent {
-    private AID bestSeller; // the current retailer / last retailer bought from
-    private List<AID> applianceList = new ArrayList<AID>(); // list of known appliances
-    private List<AID> retailerList = new ArrayList<AID>(); // list of known retailers
-    private HashMap<AID, Float> applianceUsage = new HashMap<AID, Float>(); // usage for each appliance
-    private HashMap<AID, Float> retailerOffers = new HashMap<AID, Float>(); // list of retailer offers
-    private int nResponders; // number of responders to expect
-    private int maxPrice = 10; // per unit
-    private int maxRounds = 3; // max number of rounds in negotiation
-    private int roundCount = 1; // current round of negotiation
-    private int currentRoundPower = 0; // a cached power value for negotiation
+    private AID bestSeller;                                      // the current best seller
+    private ArrayList<AID> applianceList = new ArrayList<AID>(); // list of subscribed appliances
+    private ArrayList<AID> retailerList = new ArrayList<AID>();  // list of subscribed retailers
+    
+    private HashMap<AID, Float> applianceUsage = new HashMap<AID, Float>(); // appliance comsumed usage in hashmap
+    private HashMap<AID, Float> retailerOffers = new HashMap<AID, Float>(); // retailer offers in hashmap
+    
+    private int nResponders;                                    // number of responder
+    private int maxPrice = 10;                                  // maximum price 
+    private int maxRounds = 3;                                  // maximum round of negotiation
+    private int roundCount = 1;                                 // current round count
+    private int currentRoundPower = 0;
 
     public HomeAgent() {
 
     }
 
     protected void setup() {
+        // home agent register
         addBehaviour(new RegisterService());
-        // First set-up message receiving behaviour
         CyclicBehaviour messageListeningBehaviour = new CyclicBehaviour(this) {
             public void action() {
                 ACLMessage msg = receive();
@@ -51,7 +53,6 @@ public class HomeAgent extends Agent {
 
                 while (msg != null) {
                     if (msg.getPerformative() == 50) {
-                        //System.out.println(getLocalName() + ": Received response " + msg.getContent() + " from " + msg.getSender().getLocalName());
                         applianceUsage.put(msg.getSender(), Float.valueOf(msg.getContent().replace("USAGE:", "")));
                     } else if (msg.getPerformative() == ACLMessage.SUBSCRIBE) {
                         if (msg.getContent().contains("appliance")) {
@@ -70,7 +71,6 @@ public class HomeAgent extends Agent {
         };
         addBehaviour(messageListeningBehaviour);
 
-        // every 1 second, grab the latest usage figures
         TickerBehaviour getUsage = new TickerBehaviour(this, 1000) {
             @Override
             public void onTick() {
@@ -85,7 +85,6 @@ public class HomeAgent extends Agent {
         };
         addBehaviour(getUsage);
 
-        // every 5 seconds, ask for offers from retailers
         TickerBehaviour negotiate = new TickerBehaviour(this, 5000) {
             @Override
             public void onTick() {
@@ -116,15 +115,16 @@ public class HomeAgent extends Agent {
         addBehaviour(negotiate);
     }
 
+    /**
+     * method to get current comsumed power demand
+     */
     public int getPowerDemand() {
-        // get current power usage
         int totalPower = 0;
 
         for (AID appliance : applianceList) {
             if (applianceUsage.containsKey(appliance) && applianceUsage.get(appliance) != null)
                 totalPower += applianceUsage.get(appliance);
         }
-
         return totalPower;
     }
 
@@ -135,21 +135,21 @@ public class HomeAgent extends Agent {
     private class RetailerNegotiate extends AchieveREInitiator {
         public RetailerNegotiate(Agent a, ACLMessage msg) {
             super(a, msg);
-
         }
 
+        // Method to handle a agree message
         protected void handleAgree(ACLMessage agree) {
             System.out.println(agree.getSender().getLocalName() + " has agreed to the request");
         }
 
-        // Method to handle an inform message from responder
+        // Method to handle an inform message
         protected void handleInform(ACLMessage inform) {
             System.out.println(inform.getSender().getLocalName() + " is offering $" + inform.getContent());
 
             retailerOffers.put(inform.getSender(), Float.valueOf(inform.getContent()));
         }
 
-        // Method to handle a refuse message from responder
+        // Method to handle a refuse message
         protected void handleRefuse(ACLMessage refuse) {
             nResponders--;
         }
@@ -188,7 +188,7 @@ public class HomeAgent extends Agent {
                         bestRetailer = retailer;
                 }
 
-                // make sure the best offer is below the max
+                // fetch for the best offer within the maximum round
                 if (retailerOffers.get(bestRetailer) / currentRoundPower > maxPrice && roundCount < maxRounds) {
                     System.out.println("none of exist responder is winning at this round!");
                     System.out.println("Attempt to renegotiate......");
@@ -196,9 +196,9 @@ public class HomeAgent extends Agent {
 
                     ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
 
-                    for (AID retailer : retailerList)
-                        msg.addReceiver(retailer)
-                                ;
+                    for (AID retailer : retailerList) {
+                        msg.addReceiver(retailer);
+                    }
                     msg.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
                     msg.setReplyByDate(new Date(System.currentTimeMillis() + 10000));
 

@@ -9,7 +9,6 @@ public class highRA extends RetailerAgent{
         int price = 0;
 
         for (int i = 1; i < usage; i++) {
-            //price = price + 100 * Math.pow(i, -0.77);
             price += 100 * Math.pow(i, -0.5);
     }
         return price;

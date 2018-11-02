@@ -1,9 +1,7 @@
 package agents;
 
 /**
- * @author Asus on 1/11/2018
- * @project EenergyTradingSystem
- * @package fml
+ * @author Hei @ Asus on 1/11/2018
  */
 public class linearRA extends RetailerAgent {
     @Override

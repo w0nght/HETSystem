@@ -1,49 +1,53 @@
-package fml;
+package agents;
 
-import jade.core.AID;
+/**
+ * @author HeiTung @ Asus on 26/10/2018
+ */
+
 import jade.core.Agent;
+import jade.core.AID;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
+import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
 
-/**
- * @author HeiTung @ Asus on 26/10/2018
- * @project EnergyTradingSystem
- * @package fm
- */
-public class applianceagent extends Agent {
-    // Internal state variables
-    private double usage = 0;
+public class ApplianceAgent extends Agent {
 
-    public applianceagent() {
+    public ApplianceAgent() {
     }
 
-    @Override
     protected void setup() {
-        System.out.println(getLocalName() + " await for message");
-        // receive request message
+        ACLMessage msg = new ACLMessage(ACLMessage.SUBSCRIBE);
+        msg.addReceiver(new AID("home", AID.ISLOCALNAME));
+        msg.setContent("appliance");
+        send(msg);
+        // register service
+        addBehaviour(new RegisterService());
+
         addBehaviour(new CyclicBehaviour(this) {
-            @Override
             public void action() {
+                MessageTemplate template = MessageTemplate.and(
+                        MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST),
+                        MessageTemplate.MatchContent("GetUsage"));
                 ACLMessage msg = receive();
+
                 if (msg != null) {
                     // handle message
-                    if (msg.getPerformative() == ACLMessage.REQUEST) {
-                        if (msg.getContent().contains("please provide your energy consumption")) {
-                            usage = getEstimatedConsumption();
-                        }
-                        // reply to message
-                        ACLMessage inform = msg.createReply();
-                        inform.setPerformative(ACLMessage.INFORM);
-                        inform.setContent(String.valueOf(getEstimatedConsumption()));
-                        // send reply
-                        send(inform);
-                    }
+                    if(msg.getContent().contains("GetUsage"))
+                    {
+                        // Reply to message
+                        ACLMessage reply = msg.createReply();
+                        reply.setPerformative(50);
+                        reply.setContent("USAGE:" + String.valueOf(getEstimatedConsumption()));
 
+                        // Send reply
+                        send(reply);
+                    }
                 }
             }
         });
@@ -53,9 +57,8 @@ public class applianceagent extends Agent {
      * get the estimation of current consumption
      * @return estimateConsumption
      */
-    public double getEstimatedConsumption() {
-        double estimateConsumption = Math.round(Math.random() * 100);
-        if (estimateConsumption < 0) getEstimatedConsumption();
+    public int getEstimatedConsumption() {
+        int estimateConsumption = getActualConsumption() + 1;
         return estimateConsumption;
     }
 
@@ -63,11 +66,12 @@ public class applianceagent extends Agent {
      * get the actual energy consumption
      * @return actualConsumption
      */
-    public double getActualConsumption() {
-        double actualConsumption = Math.round(Math.random() * 100);
+    public int getActualConsumption() {
+        int actualConsumption = (int)Math.round(Math.random() * 100);
         if (actualConsumption < 0) getActualConsumption();
         return actualConsumption;
     }
+
     /**
      * class of register appliance agent to DFService
      * with one shot behaviour
@@ -78,14 +82,14 @@ public class applianceagent extends Agent {
             DFAgentDescription dfd = new DFAgentDescription();
             dfd.setName(getAID());
             ServiceDescription sd = new ServiceDescription();
-            if (solar == true)
-                sd.setType("Generating");
-            else
-                sd.setType("Consuming");
+//            if (solar == true)
+//                sd.setType("Generating");
+//            else
+            sd.setType("appliance");
             sd.setName(getLocalName());
             dfd.addServices(sd);
             try {
-                DFService.register(myAgent, dfd);
+                DFService.register(ApplianceAgent.this, dfd);
             } catch (FIPAException fe) {
                 fe.printStackTrace();
             }
